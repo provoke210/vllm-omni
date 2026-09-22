@@ -679,25 +679,18 @@ class DiffusionLoRAManager:
                 scale,
             )
 
-        if not bound_lora_names:
+        unbound_lora_names = sorted(set(lora_model.loras) - bound_lora_names)
+        if not bound_lora_names or unbound_lora_names:
             raise ValueError(
-                f"LoRA adapter {lora_model.id} applies to no layer: expected target modules in "
-                f"{sorted(self._expected_lora_modules)} but received {sorted(lora_model.loras)}. "
-                "Activating it would leave the base model unchanged."
+                f"LoRA adapter {lora_model.id} binding is incomplete: "
+                f"bound={len(bound_lora_names)}/{len(lora_model.loras)}, "
+                f"unbound modules={unbound_lora_names}"
             )
 
         if callable(binding_validator):
             binding_validator(
                 lora_model=lora_model,
                 bound_lora_names=frozenset(bound_lora_names),
-            )
-
-        unbound_lora_names = sorted(set(lora_model.loras) - bound_lora_names)
-        if unbound_lora_names:
-            raise ValueError(
-                f"LoRA adapter {lora_model.id} binding is incomplete: "
-                f"bound={len(bound_lora_names)}/{len(lora_model.loras)}, "
-                f"unbound modules={unbound_lora_names}"
             )
 
     def _reset_lora_layers(self) -> None:

@@ -454,15 +454,39 @@ def test_lora_manager_rejects_adapter_that_binds_no_layer():
         )()
     }
 
-    with pytest.raises(ValueError, match="applies to no layer") as excinfo:
+    with pytest.raises(ValueError, match="binding is incomplete") as excinfo:
         manager._activate_adapter(3, scale=1.0)
 
     # The message must name what was received so the mismatch is diagnosable.
+    assert "bound=0/1" in str(excinfo.value)
     assert "unet.down_blocks.0.attn.to_q" in str(excinfo.value)
 
     # Nothing was bound and the adapter must not be left marked active.
     assert manager._active_adapter_id is None
     assert layer.set_calls == []
+    assert layer.reset_calls >= 1
+
+
+def test_lora_manager_rejects_empty_adapter():
+    """An empty adapter must not be considered successfully bound."""
+    manager = DiffusionLoRAManager(
+        pipeline=torch.nn.Module(),
+        device=torch.device("cpu"),
+        dtype=torch.bfloat16,
+        max_cached_adapters=1,
+    )
+    layer = _DummyLoRALayer(n_slices=1, output_slices=(2,))
+    manager._lora_modules = {"transformer.attn.to_q": layer}
+    manager._registered_adapters = {1: LoRAModel(1, rank=2, loras={})}
+
+    with pytest.raises(ValueError, match="bound=0/0"):
+        manager._activate_adapter(1, scale=1.0)
+
+    assert manager._active_adapter_id is None
+    assert manager._suspended_adapter_id is None
+    assert 1 not in manager._adapter_scales
+    assert layer.set_calls == []
+    assert layer.active_slices == ()
     assert layer.reset_calls >= 1
 
 
