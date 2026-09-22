@@ -27,6 +27,12 @@ The `adapter_config.json` file contains metadata about the LoRA adapter, includi
 - `lora_alpha`: LoRA alpha scaling factor
 - `target_modules`: List of module names to apply LoRA to
 
+Every module supplied by a PEFT adapter must bind successfully when the adapter
+is activated. If any module cannot bind, activation raises an error naming the
+unbound modules and resets the LoRA layers to avoid leaving the adapter partly
+active. An adapter may still target only some projections of a fused layer, such
+as Q and V without K, as long as all supplied modules bind.
+
 ## Quick Start
 
 ### Offline Inference

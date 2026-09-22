@@ -559,8 +559,7 @@ class DiffusionLoRAManager:
 
     def _bind_adapter_weights(self, lora_model: LoRAModel, scale: float) -> None:
         binding_validator = getattr(self.pipeline, "_validate_diffusion_lora_binding", None)
-        # Track bindings unconditionally. The zero-binding guard below needs this
-        # bookkeeping on every pipeline, not only the ones that supply a validator.
+        # Track successful bindings for generic and model-specific validation.
         lora_names_by_id = {id(weights): name for name, weights in lora_model.loras.items()}
         bound_lora_names: set[str] = set()
 
@@ -691,6 +690,14 @@ class DiffusionLoRAManager:
             binding_validator(
                 lora_model=lora_model,
                 bound_lora_names=frozenset(bound_lora_names),
+            )
+
+        unbound_lora_names = sorted(set(lora_model.loras) - bound_lora_names)
+        if unbound_lora_names:
+            raise ValueError(
+                f"LoRA adapter {lora_model.id} binding is incomplete: "
+                f"bound={len(bound_lora_names)}/{len(lora_model.loras)}, "
+                f"unbound modules={unbound_lora_names}"
             )
 
     def _reset_lora_layers(self) -> None:
