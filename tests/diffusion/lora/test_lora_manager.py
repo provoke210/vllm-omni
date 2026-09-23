@@ -432,6 +432,7 @@ def test_lora_manager_rejects_adapter_that_binds_no_layer():
     )
     layer = _DummyLoRALayer(n_slices=1, output_slices=(2,))
     manager._lora_modules = {"transformer.blocks.0.attn.to_q": layer}
+    manager._expected_lora_modules = {"to_q"}
 
     # Adapter-side name the engine does not expose, e.g. a diffusers-style
     # checkpoint against a differently named engine layout.
@@ -460,6 +461,7 @@ def test_lora_manager_rejects_adapter_that_binds_no_layer():
     # The message must name what was received so the mismatch is diagnosable.
     assert "bound=0/1" in str(excinfo.value)
     assert "unet.down_blocks.0.attn.to_q" in str(excinfo.value)
+    assert "expected target modules in ['to_q']" in str(excinfo.value)
 
     # Nothing was bound and the adapter must not be left marked active.
     assert manager._active_adapter_id is None
@@ -506,6 +508,7 @@ def test_lora_manager_rejects_partial_binding_and_rolls_back(unbound_name, suspe
         "transformer.attn.to_out": layer,
         "transformer.attn.to_qkv": packed_layer,
     }
+    manager._expected_lora_modules = {"to_out", "to_qkv"}
 
     def weights(name, value):
         return LoRALayerWeights(
@@ -536,6 +539,12 @@ def test_lora_manager_rejects_partial_binding_and_rolls_back(unbound_name, suspe
     assert "LoRA adapter 2" in str(excinfo.value)
     assert unbound_name in str(excinfo.value)
     assert valid_name not in str(excinfo.value).replace(unbound_name, "")
+    if unbound_name.endswith("to_qkv"):
+        assert "lora_b.shape[0]=2" in str(excinfo.value)
+        assert "sum(output_slices)=4" in str(excinfo.value)
+        assert "output_slices=(2, 1, 1)" in str(excinfo.value)
+    else:
+        assert "expected target modules in ['to_out', 'to_qkv']" in str(excinfo.value)
     assert len(layer.set_calls) == 2
     assert layer.reset_calls == 1
     assert layer.active_slices == ()
