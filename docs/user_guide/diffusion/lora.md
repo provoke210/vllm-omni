@@ -33,11 +33,13 @@ unbound modules and resets the LoRA layers to avoid leaving the adapter partly
 active. An adapter may still target only some projections of a fused layer, such
 as Q and V without K, as long as all supplied modules bind.
 
-For adapters loaded from in-memory tensors, this changes a previously silent
-partial bind into an activation error. For example, Qwen-Image, Boogu-Image,
-and Wan adapters can contain checkpoint keys such as `to_out.0` where the engine
-expects `to_out`. These adapters now fail instead of silently dropping that
-module. Checkpoint-to-engine name mapping is tracked in [#8001](https://github.com/vllm-project/vllm-omni/issues/8001);
+Previously, some adapters activated even when unmatched modules were silently
+dropped. Those adapters now fail at activation. For example, in-memory tensor
+adapters for Qwen-Image, Boogu-Image, and Wan can contain checkpoint keys such
+as `to_out.0` where the engine expects `to_out`. PEFT checkpoints with extra
+unbound keys also fail at activation if those keys pass the loader's earlier
+validation; unsupported module suffixes may already fail during loading.
+Checkpoint-to-engine name mapping is tracked in [#8001](https://github.com/vllm-project/vllm-omni/issues/8001);
 until it is available, adapter keys must resolve to supported engine modules.
 
 ## Quick Start
